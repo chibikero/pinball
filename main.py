@@ -350,7 +350,7 @@ class Pinball:
         # --- フリッパーの角度更新 (キー入力に基づいて毎フレーム行う) ---
         # 左フリッパー (Zキー)
         target_angle_l = self.flipper_angle_min_deg
-        if pyxel.btn(pyxel.KEY_Z):
+        if pyxel.btn((pyxel.KEY_Z)or(GAMEPAD1_BUTTON_X)):
             target_angle_l = self.flipper_angle_max_deg
 
         # 角度を滑らかに変化させる
@@ -362,7 +362,7 @@ class Pinball:
 
         # 右フリッパー (SLASHキー)
         target_angle_r = self.flipper_angle_min_deg
-        if pyxel.btn(pyxel.KEY_SLASH):
+        if pyxel.btn8((pyxel.KEY_SLASH)or(GAMEPAD1_BUTTON_B)):
              target_angle_r = self.flipper_angle_max_deg
 
         # 角度を滑らかに変化させる
@@ -392,14 +392,7 @@ class Pinball:
                  # READY状態になったらループを中断するチェックを追加
                  if self.game_state != "PLAYING":
                       break # ボールアウトしたらサブステップを中断
-                 self.update_physics(1.0 / self.sub_steps) # 1フレームの時間 (1.0) をサブステップ数で割った時間
-
-
-        elif self.game_state == "GAME_OVER":
-             self.update_game_over()
-
-        # どこでも共通のリトライ処理 (Rキー)
-        if self.game_state == "GAME_OVER" and pyxel.btnp(pyxel.KEY_R):
+                 self.update_physics(1.0 / self.sub_steps) # 1フレームの時間 (1.0) をサブステップ数で割った時間YKEY_R):
             self.reset_game()
 
     def update_physics(self, dt):
@@ -581,11 +574,11 @@ class Pinball:
         """ゲーム開始前の待機状態（プランジャー操作）の更新処理"""
 
         # プランジャー操作 (スペースキー)
-        if pyxel.btn(pyxel.KEY_SPACE):
+        if pyxel.btn((pyxel.KEY_SPACE)or(GAMEPAD1_BUTTON_Y)):
             max_pull_frames = int(self.max_plunger_force / self.plunger_force_scale) + 30
             self.plunger_pull_time = min(self.plunger_pull_time + 1, max_pull_frames)
 
-        elif pyxel.btnr(pyxel.KEY_SPACE):
+        elif pyxel.btnr((pyxel.KEY_SPACE)or(GAMEPAD1_BUTTON_Y)):
             # 引いていた時間に応じて基本的な速度（縦方向）を計算
             base_plunger_force = min(self.plunger_pull_time * self.plunger_force_scale, self.max_plunger_force)
 
