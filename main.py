@@ -153,14 +153,8 @@ def collide_line_circle(p1x, p1y, p2x, p2y, cx, cy, cr, added_radius, vx, vy, bo
 def collide_circle_circle(c1x, c1y, r1, c2x, c2y, r2, v1x, v1y, bounce_factor):
     # 中心間のベクトル
     dx = c2x - c1x
-    dy = c2y - c1x
-    dist_sq = dx*dx + dy*dy # ★ここが間違っていました★ c1y と c2y を使うべき
-
-    # 正しい中心間の距離の2乗
-    dx = c2x - c1x
     dy = c2y - c1y
     dist_sq = dx*dx + dy*dy
-
 
     # 半径の合計
     total_radius = r1 + r2
@@ -238,7 +232,7 @@ class Pinball:
         self.friction = 0.99     # 空気抵抗や摩擦 (速度にかけることで減衰)
         self.bounce_factor = 0.8 # 反発係数 (壁など)
         # ボールの最大速度
-        self.max_ball_speed = 15.0 # 例として15.0に設定（調整してください）
+        self.max_ball_speed = 10.0 # 例として10.0に設定（調整してください）
         # ボールの最低速度を設定
         self.min_ball_speed = 1.0 # 例として1.0に設定（調整してください）
 
@@ -305,7 +299,6 @@ class Pinball:
         self.bumper_hit_duration = 10 # バンパーが光るフレーム数
         self.bumper_color_normal = 8  # バンパーの色 (オレンジ)
         self.bumper_color_hit = 9     # ヒット時のバンパーの色 (茶色)
-        # ★ここを元に戻す★ バンパーの反発係数を元に戻す (これは collide_circle_circle内で使われるが、その結果は後で上書き)
         self.bumper_bounce_factor = 5.0 # 例として5.0に設定（調整してください）
 
 
@@ -348,9 +341,9 @@ class Pinball:
         self.game_timer += 1 # ゲームタイマーを進める
 
         # --- フリッパーの角度更新 (キー入力に基づいて毎フレーム行う) ---
-        # 左フリッパー (Zキー)
+        # 左フリッパー (Zキー または ゲームパッドXボタン)
         target_angle_l = self.flipper_angle_min_deg
-        if pyxel.btn((pyxel.KEY_Z)or(GAMEPAD1_BUTTON_X)):
+        if pyxel.btn(pyxel.KEY_Z) or pyxel.btn(pyxel.GAMEPAD1_BUTTON_X):
             target_angle_l = self.flipper_angle_max_deg
 
         # 角度を滑らかに変化させる
@@ -360,9 +353,9 @@ class Pinball:
              self.flipper_angle_l_deg = max(self.flipper_angle_l_deg - self.flipper_speed_deg, target_angle_l)
 
 
-        # 右フリッパー (SLASHキー)
+        # 右フリッパー (SLASHキー または ゲームパッドBボタン)
         target_angle_r = self.flipper_angle_min_deg
-        if pyxel.btn8((pyxel.KEY_SLASH)or(GAMEPAD1_BUTTON_B)):
+        if pyxel.btn(pyxel.KEY_SLASH) or pyxel.btn(pyxel.GAMEPAD1_BUTTON_B):
              target_angle_r = self.flipper_angle_max_deg
 
         # 角度を滑らかに変化させる
@@ -392,7 +385,14 @@ class Pinball:
                  # READY状態になったらループを中断するチェックを追加
                  if self.game_state != "PLAYING":
                       break # ボールアウトしたらサブステップを中断
-                 self.update_physics(1.0 / self.sub_steps) # 1フレームの時間 (1.0) をサブステップ数で割った時間YKEY_R):
+                 self.update_physics(1.0 / self.sub_steps) # 1フレームの時間 (1.0) をサブステップ数で割った時間
+
+
+        elif self.game_state == "GAME_OVER":
+             self.update_game_over()
+
+        # どこでも共通のリトライ処理 (Rキー または ゲームパッドAボタン)
+        if self.game_state == "GAME_OVER" and (pyxel.btnp(pyxel.KEY_R) or pyxel.btnp(pyxel.GAMEPAD1_BUTTON_A)):
             self.reset_game()
 
     def update_physics(self, dt):
@@ -531,13 +531,11 @@ class Pinball:
         # フリッパーとの衝突でボールの位置や速度が変わっている可能性があるので、最新の値を使う
         for bumper in self.bumpers:
              # collide_circle_circle は位置と速度を更新したタプルを返す
-             # Note: collide_circle_circle は速度を反射計算しますが、
-             # ここではその結果は使わず、速度の向きをランダムに設定します。
-             collided_bumper, _, _, temp_x, temp_y = collide_circle_circle( # 一時変数で受け取る (速度は使わないので _ で受ける)
+             collided_bumper, new_vx_bumper, new_vy_bumper, temp_x, temp_y = collide_circle_circle( # 新しい速度も受け取る
                  self.ball_x, self.ball_y, self.ball_r, # ボールの情報 (位置は衝突で変わっている可能性があるので最新を使う)
                  bumper["cx"], bumper["cy"], bumper["r"], # バンパーの情報
-                 self.ball_vx, self.ball_vy, # ボールの速度 (collide_circle_circle内での反射計算には使われるが、その結果は破棄)
-                 self.bumper_bounce_factor # バンパー用反発係数 (collide_circle_circle内で使われるが、その結果は破棄)
+                 self.ball_vx, self.ball_vy, # ボールの速度 (collide_circle_circle内での反射計算に使われる)
+                 self.bumper_bounce_factor # バンパー用反発係数
              )
              if collided_bumper:
                  # バンパーとの衝突があった場合
@@ -545,16 +543,16 @@ class Pinball:
                  self.ball_x = temp_x
                  self.ball_y = temp_y
 
-                 # ★ここを変更★ ボールの速度の向きをランダムな角度(90～270度)に設定
-                 # 衝突前の速度の大きさを取得
+                 # ★ここを変更★ バンパーに当たったら速度の向きを180度回転させる (反射速度を無視)
+                 # 衝突前の速度の大きさを取得（ここは collide_circle_circle 呼び出し前の self.ball_vx/vy を使うべきだが、簡易的にこの時点の値を使う）
                  current_speed = math.sqrt(self.ball_vx**2 + self.ball_vy**2)
                  # 速度の大きさが非常に小さい場合は最低速度に設定
                  if current_speed < self.min_ball_speed:
                      current_speed = self.min_ball_speed
 
                  # 90度から270度の範囲でランダムな角度を生成 (度数)
-                 # Pyxel座標系ではY下向きが正。90度は真下、180度は真左、270度は真上、0/360度は真右。
-                 # 90度から270度なので、真下から真上までの左半円になります。
+                 # Pyxel座標系での角度はY下向き正
+                 # 90度から270度は真下から真上までの左半円
                  random_angle_deg = random.uniform(90.0, 270.0) # 度数でランダムな角度
                  random_angle_rad = math.radians(random_angle_deg) # ラジアンに変換
 
@@ -569,24 +567,30 @@ class Pinball:
                  # バンパーのヒット音を鳴らす (TODO)
                  # pyxel.play(0, 0) # サウンド番号などを指定
 
+                 # 同じサブステップで複数のバンパーに当たる可能性を考慮するなら、
+                 # 当たったバンパーのリストを処理するなど、もう少し工夫が必要になる。
+                 # シンプルに、一度当たったらループを抜けるか、他のバンパーへの衝突判定も行うかは仕様次第。
+                 # ここでは全てのバンパーをチェックするループはそのままにする。
+
 
     def update_ready(self):
         """ゲーム開始前の待機状態（プランジャー操作）の更新処理"""
 
-        # プランジャー操作 (スペースキー)
-        if pyxel.btn((pyxel.KEY_SPACE)or(GAMEPAD1_BUTTON_Y)):
+        # プランジャー操作 (スペースキー または ゲームパッドYボタン)
+        if pyxel.btn(pyxel.KEY_SPACE) or pyxel.btn(pyxel.GAMEPAD1_BUTTON_Y):
             max_pull_frames = int(self.max_plunger_force / self.plunger_force_scale) + 30
             self.plunger_pull_time = min(self.plunger_pull_time + 1, max_pull_frames)
 
-        elif pyxel.btnr((pyxel.KEY_SPACE)or(GAMEPAD1_BUTTON_Y)):
+        # プランジャーを離した瞬間 (スペースキー または ゲームパッドYボタン)
+        elif pyxel.btnr(pyxel.KEY_SPACE) or pyxel.btnr(pyxel.GAMEPAD1_BUTTON_Y):
             # 引いていた時間に応じて基本的な速度（縦方向）を計算
             base_plunger_force = min(self.plunger_pull_time * self.plunger_force_scale, self.max_plunger_force)
 
             if self.plunger_pull_time > 0:
                  # 発射時の速度を斜めにする
-                 # 左右キーが押されているかチェック
-                 move_left = pyxel.btn(pyxel.KEY_LEFT)
-                 move_right = pyxel.btn(pyxel.KEY_RIGHT)
+                 # 左右キー または ゲームパッドの左右方向入力をチェック
+                 move_left = pyxel.btn(pyxel.KEY_LEFT) or pyxel.btn(pyxel.GAMEPAD1_BUTTON_DPAD_LEFT)
+                 move_right = pyxel.btn(pyxel.KEY_RIGHT) or pyxel.btn(pyxel.GAMEPAD1_BUTTON_DPAD_RIGHT)
 
                  if move_left and not move_right: # 左キーが押されている
                      self.ball_vx = -base_plunger_force * self.plunger_side_force_scale # 左方向速度
@@ -597,8 +601,13 @@ class Pinball:
                      speed_magnitude = base_plunger_force # 速度の大きさ
                      # ランダムな角度を度数で生成 (30度から60度の範囲)
                      # Pyxel座標系での角度は -60度から-30度 (真上から右に30度～60度)
-                     random_angle_deg_pyxel = random.uniform(-60.0, -30.0)
-                     random_angle_rad_pyxel = math.radians(random_angle_deg_pyxel)
+                     random_angle_deg_pyxel = random.uniform(self.plunger_random_angle_min_deg, self.plunger_random_angle_max_deg)
+                     # Note: 範囲を 30-60度に変更しましたが、Pyxel座標系の右上方向は負の角度になるため、
+                     # 範囲を -random_angle_max_deg から -random_angle_min_deg とする方が直感的かもしれません。
+                     # ここでは 30-60度をそのまま使い、右上方向になるように変換します。
+                     # 例えば、右方向 (0度) から反時計回りに 30度-60度 → 角度 300度～330度 (or -60度～-30度)
+                     random_angle_deg_pyxel = random.uniform(300.0, 330.0) # 300度から330度 (例)
+                     random_angle_rad_pyxel = math.radians(random_angle_deg_pyxel) # ラジアンに変換
 
                      # 新しい速度ベクトルを計算
                      self.ball_vx = speed_magnitude * math.cos(random_angle_rad_pyxel)
