@@ -343,7 +343,7 @@ class Pinball:
         # --- フリッパーの角度更新 (キー入力に基づいて毎フレーム行う) ---
         # 左フリッパー (Zキー または ゲームパッドXボタン)
         target_angle_l = self.flipper_angle_min_deg
-        if pyxel.btn(pyxel.KEY_Z) or pyxel.btn(pyxel.GAMEPAD1_BUTTON_X):
+        if pyxel.btn(pyxel.KEY_Z) or pyxel.btn(pyxel.GAMEPAD1_BUTTON_DPAD_LEFT):
             target_angle_l = self.flipper_angle_max_deg
 
         # 角度を滑らかに変化させる
